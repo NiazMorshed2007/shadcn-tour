@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
 import React, {
   createContext,
   useCallback,
@@ -10,6 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { motion, AnimatePresence } from "motion/react";
 
 import {
   AlertDialog,
@@ -29,9 +29,9 @@ export interface TourStep {
   width?: number;
   height?: number;
   padding?: number;
-  borderRadius?: number;
   showSkip?: boolean;
   closeable?: boolean;
+  borderRadius?: number;
   onClickWithinArea?: () => void;
   position?: "top" | "bottom" | "left" | "right";
 }
@@ -42,30 +42,30 @@ export interface TourDefinition {
 }
 
 interface TourContextType {
-  currentStep: number;
-  totalSteps: number;
-  nextStep: () => void;
-  previousStep: () => void;
-  endTour: () => void;
+  activeTourId: string | null;
+  isTourCompleted: boolean;
   isActive: boolean;
+  steps: TourStep[];
+  totalSteps: number;
+  currentStep: number;
+  endTour: () => void;
   startTour: (tourId?: string) => void;
   setSteps: (steps: TourStep[]) => void;
-  steps: TourStep[];
-  isTourCompleted: boolean;
   setIsTourCompleted: (completed: boolean) => void;
-  activeTourId: string | null;
+  previousStep: () => void;
+  nextStep: () => void;
 }
 
 interface TourProviderProps {
+  isTourCompleted?: boolean;
   children: React.ReactNode;
   tours?: TourDefinition[];
-  onComplete?: (tourId: string) => void;
-  onStart?: (tourId: string) => void;
-  onStepChange?: (tourId: string, step: number) => void;
-  onSkip?: (tourId: string, step: number) => void;
   closeable?: boolean;
   className?: string;
-  isTourCompleted?: boolean;
+  onStart?: (tourId: string) => void;
+  onComplete?: (tourId: string) => void;
+  onSkip?: (tourId: string, step: number) => void;
+  onStepChange?: (tourId: string, step: number) => void;
 }
 
 const TourContext = createContext<TourContextType | null>(null);
@@ -119,15 +119,15 @@ function calculateContentPosition(
 }
 
 export function TourProvider({
-  children,
-  tours,
-  onComplete,
-  onStart,
-  onStepChange,
-  onSkip,
+  isTourCompleted = false,
   closeable = false,
   className,
-  isTourCompleted = false,
+  children,
+  tours,
+  onStart,
+  onSkip,
+  onComplete,
+  onStepChange,
 }: TourProviderProps) {
   const [steps, setSteps] = useState<TourStep[]>([]);
   const [currentStep, setCurrentStep] = useState(-1);
@@ -207,26 +207,23 @@ export function TourProvider({
     setCurrentStep(-1);
   }, [onSkip, activeTourId, currentStep]);
 
-  const startTour = useCallback(
-    (tourId?: string) => {
-      if (isCompleted) return;
+  const startTour = useCallback((tourId?: string) => {
+    if (isCompleted) return;
 
-      if (tourId && tours) {
-        const tour = tours.find((t) => t.id === tourId);
-        if (!tour) return;
-        setActiveTourId(tourId);
-        setSteps(tour.steps);
-      } else if (!tourId && !tours) {
-        setActiveTourId("default");
-      } else if (tourId) {
-        setActiveTourId(tourId);
-      }
+    if (tourId && tours) {
+      const tour = tours.find((t) => t.id === tourId);
+      if (!tour) return;
+      setActiveTourId(tourId);
+      setSteps(tour.steps);
+    } else if (!tourId && !tours) {
+      setActiveTourId("default");
+    } else if (tourId) {
+      setActiveTourId(tourId);
+    }
 
-      setCurrentStep(0);
-      onStart?.(tourId ?? activeTourId ?? "default");
-    },
-    [isCompleted, tours, onStart, activeTourId]
-  );
+    setCurrentStep(0);
+    onStart?.(tourId ?? activeTourId ?? "default");
+  }, [isCompleted, tours, onStart, activeTourId]);
 
   useEffect(() => {
     if (currentStep < 0) return;
@@ -281,35 +278,33 @@ export function TourProvider({
   const currentStepData = steps[currentStep];
   const spotlightPadding = currentStepData?.padding ?? 8;
   const spotlightBorderRadius = currentStepData?.borderRadius ?? 8;
+  const isCloseable = currentStepData?.closeable ?? closeable;
   const isLastStep = currentStep === steps.length - 1;
   const showSkip = !isLastStep && (currentStepData?.showSkip !== false);
-  const isCloseable = currentStepData?.closeable ?? closeable;
   const spotlightWidth = currentStepData?.width || elementPosition?.width || 0;
   const spotlightHeight = currentStepData?.height || elementPosition?.height || 0;
 
-  const contentPosition = useMemo(
-    () =>
-      elementPosition
-        ? calculateContentPosition(elementPosition, currentStepData?.position, contentSize)
-        : { top: 0, left: 0 },
-    [elementPosition, currentStepData?.position, contentSize]
-  );
+  const contentPosition = useMemo(() => (
+    elementPosition
+      ? calculateContentPosition(elementPosition, currentStepData?.position, contentSize)
+      : { top: 0, left: 0 }
+  ), [elementPosition, currentStepData?.position, contentSize]);
 
   return (
     <TourContext.Provider
       value={{
-        currentStep,
-        totalSteps: steps.length,
-        nextStep,
-        previousStep,
-        endTour,
-        isActive: currentStep >= 0,
-        startTour,
-        setSteps,
-        steps,
-        isTourCompleted: isCompleted,
-        setIsTourCompleted,
         activeTourId,
+        currentStep,
+        steps,
+        totalSteps: steps.length,
+        isActive: currentStep >= 0,
+        isTourCompleted: isCompleted,
+        startTour,
+        endTour,
+        setSteps,
+        setIsTourCompleted,
+        previousStep,
+        nextStep,
       }}
     >
       {children}

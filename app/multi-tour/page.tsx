@@ -1,9 +1,15 @@
 "use client"
 
-import { AppSidebar } from "@/components/app-sidebar"
-import { TOUR_STEP_IDS } from "@/components/tour-constants"
-import { TourProvider, TourDefinition, TourStep, useTour } from "@/components/tour"
-import { NavActions } from "@/components/nav-actions"
+import { useEffect, useState } from "react"
+import { motion } from "motion/react"
+import { Torus } from "lucide-react"
+
+import {
+  useTour,
+  TourProvider,
+  TourDefinition,
+  TourStep,
+} from "@/components/tour"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -17,16 +23,16 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { motion } from "motion/react"
-import { Torus } from "lucide-react"
-import { useEffect, useState } from "react"
+import { AppSidebar } from "@/components/app-sidebar"
+import { NavActions } from "@/components/nav-actions"
+import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import { TOUR_STEP_IDS } from "@/components/tour-constants"
 
 const introSteps: TourStep[] = [
   {
@@ -239,10 +245,10 @@ function MultiTourContent() {
 }
 
 export default function MultiTourPage() {
-  return (
+return (
     <TourProvider
-      tours={tours}
       closeable
+      tours={tours}
       onStart={(id) => console.log(`[tour] onStart: ${id}`)}
       onStepChange={(id, step) => console.log(`[tour] onStepChange: ${id} → step ${step}`)}
       onComplete={(id) => console.log(`[tour] onComplete: ${id}`)}
