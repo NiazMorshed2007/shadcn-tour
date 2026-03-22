@@ -6,6 +6,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -27,6 +28,8 @@ export interface TourStep {
   selectorId: string;
   width?: number;
   height?: number;
+  padding?: number;
+  borderRadius?: number;
   onClickWithinArea?: () => void;
   position?: "top" | "bottom" | "left" | "right";
 }
@@ -99,7 +102,6 @@ function calculateContentPosition(
   return {
     top: Math.max(PADDING, Math.min(top, viewportHeight - contentSize.height - PADDING)),
     left: Math.max(PADDING, Math.min(left, viewportWidth - contentSize.width - PADDING)),
-    width: contentSize.width,
   };
 }
 
@@ -210,6 +212,20 @@ export function TourProvider({
     setIsCompleted(completed);
   }, []);
 
+  const currentStepData = steps[currentStep];
+  const spotlightPadding = currentStepData?.padding ?? 8;
+  const spotlightBorderRadius = currentStepData?.borderRadius ?? 8;
+  const spotlightWidth = currentStepData?.width || elementPosition?.width || 0;
+  const spotlightHeight = currentStepData?.height || elementPosition?.height || 0;
+
+  const contentPosition = useMemo(
+    () =>
+      elementPosition
+        ? calculateContentPosition(elementPosition, currentStepData?.position, contentSize)
+        : { top: 0, left: 0 },
+    [elementPosition, currentStepData?.position, contentSize]
+  );
+
   return (
     <TourContext.Provider
       value={{
@@ -230,26 +246,33 @@ export function TourProvider({
       <AnimatePresence>
         {currentStep >= 0 && elementPosition && (
           <>
-            <motion.div
+            <motion.svg
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 overflow-hidden bg-black/50"
-              style={{
-                clipPath: `polygon(
-                  0% 0%,
-                  0% 100%,
-                  100% 100%,
-                  100% 0%,
-                  ${elementPosition.left}px 0%,
-                  ${elementPosition.left}px ${elementPosition.top}px,
-                  ${elementPosition.left + (steps[currentStep]?.width || elementPosition.width)}px ${elementPosition.top}px,
-                  ${elementPosition.left + (steps[currentStep]?.width || elementPosition.width)}px ${elementPosition.top + (steps[currentStep]?.height || elementPosition.height)}px,
-                  ${elementPosition.left}px ${elementPosition.top + (steps[currentStep]?.height || elementPosition.height)}px,
-                  ${elementPosition.left}px 0%
-                )`,
-              }}
-            />
+              className="fixed inset-0 z-50 h-full w-full pointer-events-auto"
+            >
+              <defs>
+                <mask id="tour-mask">
+                  <rect width="100%" height="100%" fill="white" />
+                  <rect
+                    x={elementPosition.left - spotlightPadding}
+                    y={elementPosition.top - spotlightPadding}
+                    width={spotlightWidth + spotlightPadding * 2}
+                    height={spotlightHeight + spotlightPadding * 2}
+                    rx={spotlightBorderRadius}
+                    ry={spotlightBorderRadius}
+                    fill="black"
+                  />
+                </mask>
+              </defs>
+              <rect
+                width="100%"
+                height="100%"
+                fill="rgba(0,0,0,0.5)"
+                mask="url(#tour-mask)"
+              />
+            </motion.svg>
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -258,8 +281,9 @@ export function TourProvider({
                 position: "fixed",
                 top: elementPosition.top,
                 left: elementPosition.left,
-                width: steps[currentStep]?.width || elementPosition.width,
-                height: steps[currentStep]?.height || elementPosition.height,
+                width: spotlightWidth,
+                height: spotlightHeight,
+                borderRadius: spotlightBorderRadius,
               }}
               className={cn("z-[100] border-2 border-muted-foreground", className)}
             />
@@ -270,8 +294,8 @@ export function TourProvider({
               animate={{
                 opacity: 1,
                 y: 0,
-                top: calculateContentPosition(elementPosition, steps[currentStep]?.position, contentSize).top,
-                left: calculateContentPosition(elementPosition, steps[currentStep]?.position, contentSize).left,
+                top: contentPosition.top,
+                left: contentPosition.left,
               }}
               transition={{
                 duration: 0.8,
