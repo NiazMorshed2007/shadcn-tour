@@ -1,7 +1,14 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   AlertDialog,
@@ -48,16 +55,12 @@ interface TourProviderProps {
 const TourContext = createContext<TourContextType | null>(null);
 
 const PADDING = 16;
-const CONTENT_WIDTH = 300;
-const CONTENT_HEIGHT = 200;
 
-function getElementPosition(id: string) {
-  const element = document.getElementById(id);
-  if (!element) return null;
+function getElementPosition(element: HTMLElement) {
   const rect = element.getBoundingClientRect();
   return {
-    top: rect.top + window.scrollY,
-    left: rect.left + window.scrollX,
+    top: rect.top,
+    left: rect.left,
     width: rect.width,
     height: rect.height,
   };
@@ -65,7 +68,8 @@ function getElementPosition(id: string) {
 
 function calculateContentPosition(
   elementPos: { top: number; left: number; width: number; height: number },
-  position: "top" | "bottom" | "left" | "right" = "bottom"
+  position: "top" | "bottom" | "left" | "right" = "bottom",
+  contentSize: { width: number; height: number }
 ) {
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
@@ -75,28 +79,27 @@ function calculateContentPosition(
 
   switch (position) {
     case "top":
-      top = elementPos.top - CONTENT_HEIGHT - PADDING;
-      left = elementPos.left + elementPos.width / 2 - CONTENT_WIDTH / 2;
+      top = elementPos.top - contentSize.height - PADDING;
+      left = elementPos.left + elementPos.width / 2 - contentSize.width / 2;
       break;
     case "bottom":
       top = elementPos.top + elementPos.height + PADDING;
-      left = elementPos.left + elementPos.width / 2 - CONTENT_WIDTH / 2;
+      left = elementPos.left + elementPos.width / 2 - contentSize.width / 2;
       break;
     case "left":
-      left = elementPos.left - CONTENT_WIDTH - PADDING;
-      top = elementPos.top + elementPos.height / 2 - CONTENT_HEIGHT / 2;
+      left = elementPos.left - contentSize.width - PADDING;
+      top = elementPos.top + elementPos.height / 2 - contentSize.height / 2;
       break;
     case "right":
       left = elementPos.left + elementPos.width + PADDING;
-      top = elementPos.top + elementPos.height / 2 - CONTENT_HEIGHT / 2;
+      top = elementPos.top + elementPos.height / 2 - contentSize.height / 2;
       break;
   }
 
   return {
-    top: Math.max(PADDING, Math.min(top, viewportHeight - CONTENT_HEIGHT - PADDING)),
-    left: Math.max(PADDING, Math.min(left, viewportWidth - CONTENT_WIDTH - PADDING)),
-    width: CONTENT_WIDTH,
-    height: CONTENT_HEIGHT
+    top: Math.max(PADDING, Math.min(top, viewportHeight - contentSize.height - PADDING)),
+    left: Math.max(PADDING, Math.min(left, viewportWidth - contentSize.width - PADDING)),
+    width: contentSize.width,
   };
 }
 
@@ -116,11 +119,26 @@ export function TourProvider({
   } | null>(null);
   const [isCompleted, setIsCompleted] = useState(isTourCompleted);
 
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentSize, setContentSize] = useState({ width: 300, height: 200 });
+
+  useEffect(() => {
+    if (!contentRef.current) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setContentSize({
+        width: entry.contentRect.width,
+        height: entry.contentRect.height,
+      });
+    });
+    observer.observe(contentRef.current);
+    return () => observer.disconnect();
+  }, [currentStep]);
+
   const updateElementPosition = useCallback(() => {
     if (currentStep >= 0 && currentStep < steps.length) {
-      const position = getElementPosition(steps[currentStep]?.selectorId ?? "");
-      if (position) {
-        setElementPosition(position);
+      const element = document.getElementById(steps[currentStep]?.selectorId ?? "");
+      if (element) {
+        setElementPosition(getElementPosition(element));
       }
     }
   }, [currentStep, steps]);
@@ -138,17 +156,15 @@ export function TourProvider({
 
   const nextStep = useCallback(async () => {
     setCurrentStep((prev) => {
-      if (prev >= steps.length - 1) {
+      const isLast = prev >= steps.length - 1;
+      if (isLast) {
+        setIsCompleted(true);
+        onComplete?.();
         return -1;
       }
       return prev + 1;
     });
-
-    if (currentStep === steps.length - 1) {
-      setIsTourCompleted(true);
-      onComplete?.();
-    }
-  }, [steps.length, onComplete, currentStep]);
+  }, [steps.length, onComplete]);
 
   const previousStep = useCallback(() => {
     setCurrentStep((prev) => (prev > 0 ? prev - 1 : prev));
@@ -159,17 +175,15 @@ export function TourProvider({
   }, []);
 
   const startTour = useCallback(() => {
-    if (isTourCompleted) {
-      return;
-    }
+    if (isCompleted) return;
     setCurrentStep(0);
-  }, [isTourCompleted]);
+  }, [isCompleted]);
 
   const handleClick = useCallback(
     (e: MouseEvent) => {
       if (currentStep >= 0 && elementPosition && steps[currentStep]?.onClickWithinArea) {
-        const clickX = e.clientX + window.scrollX;
-        const clickY = e.clientY + window.scrollY;
+        const clickX = e.clientX;
+        const clickY = e.clientY;
 
         const isWithinBounds =
           clickX >= elementPosition.left &&
@@ -220,21 +234,19 @@ export function TourProvider({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-50 overflow-hidden bg-black/50"
+              className="fixed inset-0 z-50 overflow-hidden bg-black/50"
               style={{
                 clipPath: `polygon(
-                  0% 0%,                                                                          /* top-left */
-                  0% 100%,                                                                        /* bottom-left */
-                  100% 100%,                                                                      /* bottom-right */
-                  100% 0%,                                                                        /* top-right */
-                  
-                  /* Create rectangular hole */
-                  ${elementPosition.left}px 0%,                                                   /* top edge start */
-                  ${elementPosition.left}px ${elementPosition.top}px,                             /* hole top-left */
-                  ${elementPosition.left + (steps[currentStep]?.width || elementPosition.width)}px ${elementPosition.top}px,  /* hole top-right */
-                  ${elementPosition.left + (steps[currentStep]?.width || elementPosition.width)}px ${elementPosition.top + (steps[currentStep]?.height || elementPosition.height)}px,  /* hole bottom-right */
-                  ${elementPosition.left}px ${elementPosition.top + (steps[currentStep]?.height || elementPosition.height)}px,  /* hole bottom-left */
-                  ${elementPosition.left}px 0%                                                    /* back to top edge */
+                  0% 0%,
+                  0% 100%,
+                  100% 100%,
+                  100% 0%,
+                  ${elementPosition.left}px 0%,
+                  ${elementPosition.left}px ${elementPosition.top}px,
+                  ${elementPosition.left + (steps[currentStep]?.width || elementPosition.width)}px ${elementPosition.top}px,
+                  ${elementPosition.left + (steps[currentStep]?.width || elementPosition.width)}px ${elementPosition.top + (steps[currentStep]?.height || elementPosition.height)}px,
+                  ${elementPosition.left}px ${elementPosition.top + (steps[currentStep]?.height || elementPosition.height)}px,
+                  ${elementPosition.left}px 0%
                 )`,
               }}
             />
@@ -243,7 +255,7 @@ export function TourProvider({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               style={{
-                position: "absolute",
+                position: "fixed",
                 top: elementPosition.top,
                 left: elementPosition.left,
                 width: steps[currentStep]?.width || elementPosition.width,
@@ -253,12 +265,13 @@ export function TourProvider({
             />
 
             <motion.div
+              ref={contentRef}
               initial={{ opacity: 0, y: 10, top: 50, right: 50 }}
               animate={{
                 opacity: 1,
                 y: 0,
-                top: calculateContentPosition(elementPosition, steps[currentStep]?.position).top,
-                left: calculateContentPosition(elementPosition, steps[currentStep]?.position).left,
+                top: calculateContentPosition(elementPosition, steps[currentStep]?.position, contentSize).top,
+                left: calculateContentPosition(elementPosition, steps[currentStep]?.position, contentSize).left,
               }}
               transition={{
                 duration: 0.8,
@@ -267,9 +280,8 @@ export function TourProvider({
               }}
               exit={{ opacity: 0, y: 10 }}
               style={{
-                position: "absolute",
-                width: calculateContentPosition(elementPosition, steps[currentStep]?.position)
-                  .width,
+                position: "fixed",
+                maxWidth: 400,
               }}
               className="bg-background relative z-[100] rounded-lg border p-4 shadow-lg"
             >

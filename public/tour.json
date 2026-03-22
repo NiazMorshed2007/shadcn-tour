@@ -3,7 +3,8 @@
   "type": "registry:block",
   "description": "",
   "dependencies": [
-    "motion"
+    "motion",
+    "lucide-react"
   ],
   "registryDependencies": [
     "alert-dialog",
