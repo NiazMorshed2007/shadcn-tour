@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { Torus } from "lucide-react";
+import { Torus, X } from "lucide-react";
 
 export interface TourStep {
   content: React.ReactNode;
@@ -30,8 +30,15 @@ export interface TourStep {
   height?: number;
   padding?: number;
   borderRadius?: number;
+  showSkip?: boolean;
+  closeable?: boolean;
   onClickWithinArea?: () => void;
   position?: "top" | "bottom" | "left" | "right";
+}
+
+export interface TourDefinition {
+  id: string;
+  steps: TourStep[];
 }
 
 interface TourContextType {
@@ -41,16 +48,22 @@ interface TourContextType {
   previousStep: () => void;
   endTour: () => void;
   isActive: boolean;
-  startTour: () => void;
+  startTour: (tourId?: string) => void;
   setSteps: (steps: TourStep[]) => void;
   steps: TourStep[];
   isTourCompleted: boolean;
   setIsTourCompleted: (completed: boolean) => void;
+  activeTourId: string | null;
 }
 
 interface TourProviderProps {
   children: React.ReactNode;
-  onComplete?: () => void;
+  tours?: TourDefinition[];
+  onComplete?: (tourId: string) => void;
+  onStart?: (tourId: string) => void;
+  onStepChange?: (tourId: string, step: number) => void;
+  onSkip?: (tourId: string, step: number) => void;
+  closeable?: boolean;
   className?: string;
   isTourCompleted?: boolean;
 }
@@ -107,12 +120,18 @@ function calculateContentPosition(
 
 export function TourProvider({
   children,
+  tours,
   onComplete,
+  onStart,
+  onStepChange,
+  onSkip,
+  closeable = false,
   className,
   isTourCompleted = false,
 }: TourProviderProps) {
   const [steps, setSteps] = useState<TourStep[]>([]);
   const [currentStep, setCurrentStep] = useState(-1);
+  const [activeTourId, setActiveTourId] = useState<string | null>(null);
   const [elementPosition, setElementPosition] = useState<{
     top: number;
     left: number;
@@ -140,6 +159,10 @@ export function TourProvider({
     if (currentStep >= 0 && currentStep < steps.length) {
       const element = document.getElementById(steps[currentStep]?.selectorId ?? "");
       if (element) {
+        const rect = element.getBoundingClientRect();
+        if (rect.top < 0 || rect.bottom > window.innerHeight) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
         setElementPosition(getElementPosition(element));
       }
     }
@@ -161,25 +184,68 @@ export function TourProvider({
       const isLast = prev >= steps.length - 1;
       if (isLast) {
         setIsCompleted(true);
-        onComplete?.();
+        onComplete?.(activeTourId ?? "default");
         return -1;
       }
-      return prev + 1;
+      const next = prev + 1;
+      onStepChange?.(activeTourId ?? "default", next);
+      return next;
     });
-  }, [steps.length, onComplete]);
+  }, [steps.length, onComplete, onStepChange, activeTourId]);
 
   const previousStep = useCallback(() => {
-    setCurrentStep((prev) => (prev > 0 ? prev - 1 : prev));
-  }, []);
+    setCurrentStep((prev) => {
+      if (prev <= 0) return prev;
+      const next = prev - 1;
+      onStepChange?.(activeTourId ?? "default", next);
+      return next;
+    });
+  }, [onStepChange, activeTourId]);
 
   const endTour = useCallback(() => {
+    onSkip?.(activeTourId ?? "default", currentStep);
     setCurrentStep(-1);
-  }, []);
+  }, [onSkip, activeTourId, currentStep]);
 
-  const startTour = useCallback(() => {
-    if (isCompleted) return;
-    setCurrentStep(0);
-  }, [isCompleted]);
+  const startTour = useCallback(
+    (tourId?: string) => {
+      if (isCompleted) return;
+
+      if (tourId && tours) {
+        const tour = tours.find((t) => t.id === tourId);
+        if (!tour) return;
+        setActiveTourId(tourId);
+        setSteps(tour.steps);
+      } else if (!tourId && !tours) {
+        setActiveTourId("default");
+      } else if (tourId) {
+        setActiveTourId(tourId);
+      }
+
+      setCurrentStep(0);
+      onStart?.(tourId ?? activeTourId ?? "default");
+    },
+    [isCompleted, tours, onStart, activeTourId]
+  );
+
+  useEffect(() => {
+    if (currentStep < 0) return;
+    const handler = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case "ArrowRight":
+          nextStep();
+          break;
+        case "ArrowLeft":
+          previousStep();
+          break;
+        case "Escape":
+          endTour();
+          break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [currentStep, nextStep, previousStep, endTour]);
 
   const handleClick = useCallback(
     (e: MouseEvent) => {
@@ -215,6 +281,9 @@ export function TourProvider({
   const currentStepData = steps[currentStep];
   const spotlightPadding = currentStepData?.padding ?? 8;
   const spotlightBorderRadius = currentStepData?.borderRadius ?? 8;
+  const isLastStep = currentStep === steps.length - 1;
+  const showSkip = !isLastStep && (currentStepData?.showSkip !== false);
+  const isCloseable = currentStepData?.closeable ?? closeable;
   const spotlightWidth = currentStepData?.width || elementPosition?.width || 0;
   const spotlightHeight = currentStepData?.height || elementPosition?.height || 0;
 
@@ -240,6 +309,7 @@ export function TourProvider({
         steps,
         isTourCompleted: isCompleted,
         setIsTourCompleted,
+        activeTourId,
       }}
     >
       {children}
@@ -309,8 +379,23 @@ export function TourProvider({
               }}
               className="bg-background relative z-[100] rounded-lg border p-4 shadow-lg"
             >
-              <div className="text-muted-foreground absolute right-4 top-4 text-xs">
-                {currentStep + 1} / {steps.length}
+              <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+                <span className="text-muted-foreground text-xs">
+                  {currentStep + 1} / {steps.length}
+                </span>
+                {isCloseable && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      endTour();
+                    }}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Close</span>
+                  </button>
+                )}
               </div>
               <AnimatePresence mode="wait">
                 <div>
@@ -329,22 +414,27 @@ export function TourProvider({
                   >
                     {steps[currentStep]?.content}
                   </motion.div>
-                  <div className="mt-4 flex justify-between">
-                    {currentStep > 0 && (
+                  <div className="mt-4 flex items-center justify-between">
+                    {showSkip ? (
                       <button
-                        onClick={previousStep}
-                        disabled={currentStep === 0}
-                        className="text-sm text-muted-foreground hover:text-foreground"
+                        onClick={endTour}
+                        className="text-xs text-muted-foreground hover:text-foreground"
                       >
-                        Previous
+                        Skip tour
                       </button>
+                    ) : (
+                      <div />
                     )}
-                    <button
-                      onClick={nextStep}
-                      className="ml-auto text-sm font-medium text-primary hover:text-primary/90"
-                    >
-                      {currentStep === steps.length - 1 ? "Finish" : "Next"}
-                    </button>
+                    <div className="flex gap-2">
+                      {currentStep > 0 && (
+                        <Button variant="outline" size="sm" onClick={previousStep}>
+                          Previous
+                        </Button>
+                      )}
+                      <Button size="sm" onClick={nextStep}>
+                        {currentStep === steps.length - 1 ? "Finish" : "Next"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </AnimatePresence>
@@ -413,7 +503,7 @@ export function TourAlertDialog({ isOpen, setIsOpen }: { isOpen: boolean, setIsO
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="mt-6 space-y-3">
-          <Button onClick={startTour} className="w-full">
+          <Button onClick={() => startTour()} className="w-full">
             Start Tour
           </Button>
           <Button onClick={handleSkip} variant="ghost" className="w-full">
