@@ -69,11 +69,43 @@ function Page() {
 }
 ```
 
-4. Remember to add the step ids to the selectors you want to highlight. Here is an example of how to do it:
+4. Add the step identifiers to the elements you want to highlight:
 
 ```tsx
-<div id={TOUR_STEP_IDS.TEAM_SWITCHER}>Team Switcher</div>
+<div id={TOUR_STEPS.TEAM_SWITCHER.id}>Team Switcher</div>
 ```
+
+## Element Targeting
+
+Each tour step needs to locate a DOM element to spotlight. You can target elements in two ways:
+
+### By element ID (`selectorId`)
+
+Easily assign an `id` to the element and reference it with `selectorId`:
+
+```tsx
+// In your component
+<div id="my-element">Hello</div>
+
+// In your tour step
+{ selectorId: "my-element", content: <div>...</div> }
+```
+
+### By CSS selector (`selector`)
+
+Use any valid CSS selector. This avoids requiring the `id` namespace as it may be used for other purposes already - and works well with component libraries:
+
+```tsx
+// Simple data attribute
+<Button data-tour="export">Export</Button>
+{ selector: '[data-tour="export"]', content: <div>...</div> }
+
+// Any valid CSS selector
+<nav className="tour-highlight" data-name="sidebar">...</nav>
+{ selector: '.tour-highlight[data-name="sidebar"]', content: <div>...</div> }
+```
+
+> **Note:** TypeScript enforces that you provide either `selectorId` or `selector`, but not both. Both approaches can be mixed within the same tour.
 
 ## Multiple Named Tours
 
@@ -197,7 +229,11 @@ Configuration for an individual tour step.
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `content` | `React.ReactNode` | Required | The content to display in the tooltip |
-| `selectorId` | `string` | Required | The `id` of the target element to highlight |
+| `selectorId` | `string` | Required\* | The `id` of the target element to highlight |
+| `selector` | `string` | Required\* | A CSS selector for the target element (e.g. `'[data-tour="export"]'`) |
+
+> \* Provide EITHER `selectorId` or `selector`, but not both.
+
 | `position` | `"top" \| "bottom" \| "left" \| "right"` | `"bottom"` | Tooltip placement relative to the target |
 | `width` | `number` | `undefined` | Override the spotlight width |
 | `height` | `number` | `undefined` | Override the spotlight height |
