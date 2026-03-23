@@ -15,22 +15,32 @@ class MockResizeObserver {
 }
 globalThis.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
 
+const DEFAULT_RECT: DOMRect = {
+  top: 100, left: 100, width: 200, height: 50,
+  bottom: 150, right: 300, x: 100, y: 100,
+  toJSON: () => {},
+};
+
 // Helper to create a target element in the DOM
-function createTargetElement(id: string, rect?: Partial<DOMRect>) {
+function createTargetElement({
+  id,
+  rect,
+  ...attrs
+}: {
+  id?: string;
+  rect?: Partial<DOMRect>;
+  [key: string]: unknown;
+} = {}) {
   const el = document.createElement("div");
-  el.id = id;
-  el.getBoundingClientRect = () => ({
-    top: 100,
-    left: 100,
-    width: 200,
-    height: 50,
-    bottom: 150,
-    right: 300,
-    x: 100,
-    y: 100,
-    toJSON: () => {},
-    ...rect,
-  });
+  if (id) {
+    el.id = id;
+  }
+  for (const [key, value] of Object.entries(attrs)) {
+    if (typeof value === "string") {
+      el.setAttribute(key, value);
+    }
+  }
+  el.getBoundingClientRect = () => ({ ...DEFAULT_RECT, ...rect });
   el.scrollIntoView = vi.fn();
   document.body.appendChild(el);
   return el;
@@ -71,9 +81,9 @@ const basicSteps: TourStep[] = [
 describe("core behavior", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
-    createTargetElement("target-1");
-    createTargetElement("target-2", { top: 200, left: 300 });
-    createTargetElement("target-3", { top: 400, left: 100 });
+    createTargetElement({ id: "target-1" });
+    createTargetElement({ id: "target-2", rect: { top: 200, left: 300 } });
+    createTargetElement({ id: "target-3", rect: { top: 400, left: 100 } });
   });
 
   describe("rendering", () => {
@@ -222,9 +232,9 @@ describe("extended features", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     targets = [
-      createTargetElement("target-1"),
-      createTargetElement("target-2", { top: 200, left: 300 }),
-      createTargetElement("target-3", { top: 400, left: 100 }),
+      createTargetElement({ id: "target-1" }),
+      createTargetElement({ id: "target-2", rect: { top: 200, left: 300 } }),
+      createTargetElement({ id: "target-3", rect: { top: 400, left: 100 } }),
     ];
   });
 
@@ -500,9 +510,9 @@ describe("extended features", () => {
 
   describe("scroll into view", () => {
     it("calls scrollIntoView when element is off-screen", () => {
-      const offScreenElement = createTargetElement("target-offscreen", {
-        top: -100,
-        bottom: -50,
+      const offScreenElement = createTargetElement({
+        id: "target-offscreen",
+        rect: { top: -100, bottom: -50 },
       });
 
       const stepsWithOffscreen: TourStep[] = [
@@ -533,6 +543,131 @@ describe("extended features", () => {
 
       act(() => { screen.getByTestId("start").click(); });
       expect(targets[0].scrollIntoView).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("CSS selector targeting", () => {
+    it("targets elements by data-tour attribute using selector prop", () => {
+      createTargetElement({ "data-tour": "export" });
+      createTargetElement({ "data-tour": "toolbar", rect: { top: 200, left: 300 } });
+
+      const selectorSteps: TourStep[] = [
+        { content: <div>Export Step</div>, selector: '[data-tour="export"]' },
+        { content: <div>Toolbar Step</div>, selector: '[data-tour="toolbar"]' },
+      ];
+
+      render(
+        <TourProvider>
+          <SetStepsOnMount steps={selectorSteps} />
+          <TourControls />
+        </TourProvider>
+      );
+
+      act(() => { screen.getByTestId("start").click(); });
+      expect(screen.getByText("Export Step")).toBeInTheDocument();
+      expect(screen.getByTestId("active")).toHaveTextContent("true");
+
+      act(() => { screen.getByTestId("next").click(); });
+      expect(screen.getByText("Toolbar Step")).toBeInTheDocument();
+    });
+
+    it("can mix selectorId and selector steps in the same tour", () => {
+      createTargetElement({ id: "id-target" });
+      createTargetElement({ "data-tour": "selector-target", rect: { top: 200 } });
+
+      const mixedSteps: TourStep[] = [
+        { content: <div>By ID</div>, selectorId: "id-target" },
+        { content: <div>By Selector</div>, selector: '[data-tour="selector-target"]' },
+      ];
+
+      render(
+        <TourProvider>
+          <SetStepsOnMount steps={mixedSteps} />
+          <TourControls />
+        </TourProvider>
+      );
+
+      act(() => { screen.getByTestId("start").click(); });
+      expect(screen.getByText("By ID")).toBeInTheDocument();
+
+      act(() => { screen.getByTestId("next").click(); });
+      expect(screen.getByText("By Selector")).toBeInTheDocument();
+    });
+
+    it("targets elements with compound CSS selectors", () => {
+      createTargetElement({ class: "tour-highlight", "data-name": "sidebar" });
+
+      const compoundSteps: TourStep[] = [
+        { content: <div>Sidebar</div>, selector: '.tour-highlight[data-name="sidebar"]' },
+      ];
+
+      render(
+        <TourProvider>
+          <SetStepsOnMount steps={compoundSteps} />
+          <TourControls />
+        </TourProvider>
+      );
+
+      act(() => { screen.getByTestId("start").click(); });
+      expect(screen.getByText("Sidebar")).toBeInTheDocument();
+      expect(screen.getByTestId("active")).toHaveTextContent("true");
+    });
+
+    it("works with named tours using selector", () => {
+      createTargetElement({ "data-tour": "step-a" });
+      createTargetElement({ "data-tour": "step-b", rect: { top: 200 } });
+
+      const tours: TourDefinition[] = [
+        {
+          id: "selector-tour",
+          steps: [
+            { content: <div>Selector A</div>, selector: '[data-tour="step-a"]' },
+            { content: <div>Selector B</div>, selector: '[data-tour="step-b"]' },
+          ],
+        },
+      ];
+
+      function Controls() {
+        const { startTour, activeTourId, isActive } = useTour();
+        return (
+          <div>
+            <button data-testid="start" onClick={() => startTour("selector-tour")}>Start</button>
+            <span data-testid="tour-id">{activeTourId ?? "none"}</span>
+            <span data-testid="active">{String(isActive)}</span>
+          </div>
+        );
+      }
+
+      render(
+        <TourProvider tours={tours}>
+          <Controls />
+        </TourProvider>
+      );
+
+      act(() => { screen.getByTestId("start").click(); });
+      expect(screen.getByTestId("tour-id")).toHaveTextContent("selector-tour");
+      expect(screen.getByText("Selector A")).toBeInTheDocument();
+    });
+
+    it("scrolls into view for off-screen selector targets", () => {
+      const el = createTargetElement({ "data-tour": "offscreen", rect: { top: -100, bottom: -50 } });
+
+      const steps: TourStep[] = [
+        { content: <div>Off screen</div>, selector: '[data-tour="offscreen"]' },
+      ];
+
+      render(
+        <TourProvider>
+          <SetStepsOnMount steps={steps} />
+          <TourControls />
+        </TourProvider>
+      );
+
+      act(() => { screen.getByTestId("start").click(); });
+      expect(el.scrollIntoView).toHaveBeenCalledWith({
+        behavior: "smooth",
+        block: "center",
+      });
     });
   });
 });
