@@ -24,7 +24,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { TOUR_STEP_IDS } from "./tour-constants"
+import { TOUR_STEPS } from "./tour-constants"
 
 export function NavFavorites({
   favorites,
@@ -38,7 +38,7 @@ export function NavFavorites({
   const { isMobile } = useSidebar()
 
   return (
-    <SidebarGroup id={TOUR_STEP_IDS.FAVORITES} className="group-data-[collapsible=icon]:hidden">
+    <SidebarGroup id={TOUR_STEPS.FAVORITES.id} data-tour={TOUR_STEPS.FAVORITES.id} className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Favorites</SidebarGroupLabel>
       <SidebarMenu>
         {favorites.map((item) => (

@@ -23,9 +23,8 @@ import { cn } from "@/lib/utils";
 
 import { Torus, X } from "lucide-react";
 
-export interface TourStep {
+interface TourStepBase {
   content: React.ReactNode;
-  selectorId: string;
   width?: number;
   height?: number;
   padding?: number;
@@ -35,6 +34,20 @@ export interface TourStep {
   onClickWithinArea?: () => void;
   position?: "top" | "bottom" | "left" | "right";
 }
+
+/** Target an element by its ID (backward compatible) */
+interface TourStepById extends TourStepBase {
+  selectorId: string;
+  selector?: never;
+}
+
+/** Target an element by a CSS selector (e.g. '[data-tour="export"]') */
+interface TourStepBySelector extends TourStepBase {
+  selector: string;
+  selectorId?: never;
+}
+
+export type TourStep = TourStepById | TourStepBySelector;
 
 export interface TourDefinition {
   id: string;
@@ -157,7 +170,10 @@ export function TourProvider({
 
   const updateElementPosition = useCallback(() => {
     if (currentStep >= 0 && currentStep < steps.length) {
-      const element = document.getElementById(steps[currentStep]?.selectorId ?? "");
+      const step = steps[currentStep];
+      const element = step?.selector
+        ? document.querySelector<HTMLElement>(step.selector)
+        : document.getElementById(step?.selectorId ?? "");
       if (element) {
         const rect = element.getBoundingClientRect();
         if (rect.top < 0 || rect.bottom > window.innerHeight) {

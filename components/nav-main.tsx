@@ -22,7 +22,7 @@ export function NavMain({
   return (
     <SidebarMenu>
       {items.map((item) => (
-        <SidebarMenuItem key={item.title} id={item.id}>
+        <SidebarMenuItem key={item.title} id={item.id} data-tour={item.id}>
           <SidebarMenuButton asChild isActive={item.isActive}>
             <a href={item.url}>
               <item.icon />
