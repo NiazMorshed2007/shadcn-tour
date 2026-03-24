@@ -102,21 +102,34 @@ function calculateContentPosition(
 ) {
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
+  const elementCenterX = elementPos.left + elementPos.width / 2;
+  const elementInRightHalf = elementCenterX > viewportWidth / 2;
 
-  let left = elementPos.left;
-  let top = elementPos.top;
+  // Always resolve to absolute top + left so Framer Motion never animates
+  // between "auto" and a number — that causes the element to stretch when
+  // both top & bottom (or left & right) are numeric mid-animation.
+  let left: number = elementPos.left;
+  let top: number = elementPos.top;
 
   switch (position) {
     case "top":
-      top = elementPos.top - contentSize.height - PADDING;
-      left = elementPos.left + elementPos.width / 2 - contentSize.width / 2;
+      top = elementPos.top - PADDING - contentSize.height;
+      if (elementInRightHalf) {
+        left = elementPos.left + elementPos.width - contentSize.width;
+      } else {
+        left = elementPos.left;
+      }
       break;
     case "bottom":
       top = elementPos.top + elementPos.height + PADDING;
-      left = elementPos.left + elementPos.width / 2 - contentSize.width / 2;
+      if (elementInRightHalf) {
+        left = elementPos.left + elementPos.width - contentSize.width;
+      } else {
+        left = elementPos.left;
+      }
       break;
     case "left":
-      left = elementPos.left - contentSize.width - PADDING;
+      left = elementPos.left - PADDING - contentSize.width;
       top = elementPos.top + elementPos.height / 2 - contentSize.height / 2;
       break;
     case "right":
@@ -125,10 +138,10 @@ function calculateContentPosition(
       break;
   }
 
-  return {
-    top: Math.max(PADDING, Math.min(top, viewportHeight - contentSize.height - PADDING)),
-    left: Math.max(PADDING, Math.min(left, viewportWidth - contentSize.width - PADDING)),
-  };
+  top = Math.max(PADDING, Math.min(top, viewportHeight - contentSize.height - PADDING));
+  left = Math.max(PADDING, Math.min(left, viewportWidth - contentSize.width - PADDING));
+
+  return { top, left };
 }
 
 export function TourProvider({
@@ -155,10 +168,23 @@ export function TourProvider({
 
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentSize, setContentSize] = useState({ width: 300, height: 200 });
+  const contentTransitioning = useRef(false);
+  const prevStepRef = useRef(-1);
+
+  // Track step transitions to prevent content-size jitter during content exit/enter.
+  // The ResizeObserver fires intermediate sizes as the old content exits and new content
+  // enters, which would cause contentPosition to recalculate mid-animation.
+  useEffect(() => {
+    if (currentStep >= 0 && prevStepRef.current >= 0) {
+      contentTransitioning.current = true;
+    }
+    prevStepRef.current = currentStep;
+  }, [currentStep]);
 
   useEffect(() => {
     if (!contentRef.current) return;
     const observer = new ResizeObserver(([entry]) => {
+      if (contentTransitioning.current) return;
       setContentSize({
         width: entry.contentRect.width,
         height: entry.contentRect.height,
@@ -371,7 +397,7 @@ export function TourProvider({
 
             <motion.div
               ref={contentRef}
-              initial={{ opacity: 0, y: 10, top: 50, right: 50 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{
                 opacity: 1,
                 y: 0,
@@ -387,6 +413,7 @@ export function TourProvider({
               style={{
                 position: "fixed",
                 maxWidth: 400,
+                minWidth: 300,
               }}
               className="bg-background relative z-[100] rounded-lg border p-4 shadow-lg"
             >
@@ -421,6 +448,13 @@ export function TourProvider({
                       height: {
                         duration: 0.4,
                       },
+                    }}
+                    onAnimationComplete={() => {
+                      contentTransitioning.current = false;
+                      if (contentRef.current) {
+                        const rect = contentRef.current.getBoundingClientRect();
+                        setContentSize({ width: rect.width, height: rect.height });
+                      }
                     }}
                   >
                     {steps[currentStep]?.content}
