@@ -32,8 +32,9 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { NavActions } from "@/components/nav-actions"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { TOUR_STEP_IDS } from "@/components/tour-constants"
+import { TOUR_STEPS } from "@/components/tour-constants"
 
+// Intro tour uses selectorId (element IDs) — the original approach
 const introSteps: TourStep[] = [
   {
     content: (
@@ -44,7 +45,7 @@ const introSteps: TourStep[] = [
         </p>
       </div>
     ),
-    selectorId: TOUR_STEP_IDS.TEAM_SWITCHER,
+    selectorId: TOUR_STEPS.TEAM_SWITCHER.id,
     position: "right",
     padding: 8,
     borderRadius: 8,
@@ -58,13 +59,14 @@ const introSteps: TourStep[] = [
         </p>
       </div>
     ),
-    selectorId: TOUR_STEP_IDS.WRITING_AREA,
+    selectorId: TOUR_STEPS.WRITING_AREA.id,
     position: "left",
     padding: 12,
     borderRadius: 12,
   },
 ];
 
+// Advanced tour uses selector (CSS selectors via data-tour attributes)
 const advancedSteps: TourStep[] = [
   {
     content: (
@@ -75,7 +77,7 @@ const advancedSteps: TourStep[] = [
         </p>
       </div>
     ),
-    selectorId: TOUR_STEP_IDS.ASK_AI,
+    selector: TOUR_STEPS.ASK_AI.selector,
     position: "bottom",
     padding: 10,
     borderRadius: 10,
@@ -90,7 +92,7 @@ const advancedSteps: TourStep[] = [
         </p>
       </div>
     ),
-    selectorId: TOUR_STEP_IDS.FAVORITES,
+    selector: TOUR_STEPS.FAVORITES.selector,
     position: "right",
     padding: 8,
     borderRadius: 8,
@@ -104,7 +106,7 @@ const advancedSteps: TourStep[] = [
         </p>
       </div>
     ),
-    selectorId: TOUR_STEP_IDS.TEAM_SWITCHER,
+    selector: TOUR_STEPS.TEAM_SWITCHER.selector,
     position: "right",
     padding: 8,
     borderRadius: 8,
@@ -228,7 +230,7 @@ function MultiTourContent() {
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 px-4 py-10">
-          <div id={TOUR_STEP_IDS.WRITING_AREA} className="max-w-3xl p-3 space-y-4 h-full w-full mx-auto">
+          <div id={TOUR_STEPS.WRITING_AREA.id} className="max-w-3xl p-3 space-y-4 h-full w-full mx-auto">
             <h1 className="text-4xl font-bold">Hello World</h1>
             <p className="text-sm text-muted-foreground">
               Lorem ipsum dolor sit amet consectetur adipisicing elit. Aspernatur distinctio repudiandae earum veritatis architecto? Molestiae, tenetur perferendis fugit aliquam, debitis non dolores earum illum suscipit deserunt sunt est deleniti tempora?

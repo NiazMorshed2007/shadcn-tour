@@ -26,7 +26,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { TOUR_STEP_IDS } from "./tour-constants"
+import { TOUR_STEPS } from "./tour-constants"
 
 // This is sample data.
 const data = {
@@ -56,7 +56,7 @@ const data = {
     {
       title: "Ask AI",
       url: "#",
-      id: TOUR_STEP_IDS.ASK_AI,
+      id: TOUR_STEPS.ASK_AI.id,
       icon: Sparkles,
     },
     {

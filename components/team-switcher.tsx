@@ -17,7 +17,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { TOUR_STEP_IDS } from "./tour-constants"
+import { TOUR_STEPS } from "./tour-constants"
 
 export function TeamSwitcher({
   teams,
@@ -35,7 +35,7 @@ export function TeamSwitcher({
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton id={TOUR_STEP_IDS.TEAM_SWITCHER} className="w-fit px-1.5">
+            <SidebarMenuButton id={TOUR_STEPS.TEAM_SWITCHER.id} data-tour={TOUR_STEPS.TEAM_SWITCHER.id} className="w-fit px-1.5">
               <div className="flex aspect-square size-5 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
                 <activeTeam.logo className="size-3" />
               </div>

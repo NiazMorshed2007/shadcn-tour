@@ -1,7 +1,7 @@
 "use client"
 
 import { AppSidebar } from "@/components/app-sidebar"
-import { TOUR_STEP_IDS } from "@/components/tour-constants"
+import { TOUR_STEPS } from "@/components/tour-constants"
 import { TourAlertDialog, TourStep, useTour } from "@/components/tour"
 import { NavActions } from "@/components/nav-actions"
 import {
@@ -22,25 +22,25 @@ import { useEffect, useState } from "react"
 const steps: TourStep[] = [
   {
     content: <div>Team Switcher</div>,
-    selectorId: TOUR_STEP_IDS.TEAM_SWITCHER,
+    selectorId: TOUR_STEPS.TEAM_SWITCHER.id,
     position: "right",
     onClickWithinArea: () => { },
   },
   {
     content: <div>Writing Area</div>,
-    selectorId: TOUR_STEP_IDS.WRITING_AREA,
+    selectorId: TOUR_STEPS.WRITING_AREA.id,
     position: "left",
     onClickWithinArea: () => { },
   },
   {
     content: <div>Ask AI</div>,
-    selectorId: TOUR_STEP_IDS.ASK_AI,
+    selectorId: TOUR_STEPS.ASK_AI.id,
     position: "bottom",
     onClickWithinArea: () => { },
   },
   {
     content: <div>Quicly access your favorite pages</div>,
-    selectorId: TOUR_STEP_IDS.FAVORITES,
+    selectorId: TOUR_STEPS.FAVORITES.id,
     position: "right",
     onClickWithinArea: () => { },
   },
@@ -84,7 +84,7 @@ export default function Page() {
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 px-4 py-10">
-          <div id={TOUR_STEP_IDS.WRITING_AREA} className="max-w-3xl p-3 space-y-4 h-full w-full mx-auto">
+          <div id={TOUR_STEPS.WRITING_AREA.id} className="max-w-3xl p-3 space-y-4 h-full w-full mx-auto">
             <h1 className="text-4xl font-bold">Hello World</h1>
             <p className="text-sm text-muted-foreground">
               Lorem ipsum dolor sit amet consectetur adipisicing elit. Aspernatur distinctio repudiandae earum veritatis architecto? Molestiae, tenetur perferendis fugit aliquam, debitis non dolores earum illum suscipit deserunt sunt est deleniti tempora?
