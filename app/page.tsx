@@ -1,6 +1,11 @@
 "use client"
 
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Check, Copy, Star } from "lucide-react";
 import Link from "next/link";
 import React from "react";
@@ -22,9 +27,25 @@ export default function Home() {
       </p>
 
       <div className="flex items-center gap-2">
-        <Link href="/dashboard" target="_blank">
-          <Button>Open Example</Button>
-        </Link>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button>Open Example</Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-2" align="center">
+            <div className="flex flex-col gap-1">
+              <Link href="/dashboard">
+                <Button variant="ghost" className="w-full justify-start text-sm">
+                  Standard
+                </Button>
+              </Link>
+              <Link href="/multi-tour">
+                <Button variant="ghost" className="w-full justify-start text-sm">
+                  Multi-Tour
+                </Button>
+              </Link>
+            </div>
+          </PopoverContent>
+        </Popover>
         <Link href="https://github.com/NiazMorshed2007/shadcn-tour" target="_blank">
           <Button variant={"outline"}>
             <Star className="w-4 h-4" />
